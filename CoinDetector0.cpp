@@ -10,6 +10,31 @@ using namespace std;
 
 #define CHANNEL_NUM 3
 
+
+// Define our callback which we will install for
+// mouse events
+//
+void my_mouse_callback(
+	int event, int x, int y, int flags, void* param
+);
+
+// Global variables we _have_ to have for the annotation mousecallback
+Rect box;
+vector<Point2f> circlecenters;
+bool drawing_box = false;
+
+// A little subroutine to draw a box onto an image
+//
+void draw_box(cv::Mat& img, cv::Rect box) {
+	cv::rectangle(
+		img,
+		box.tl(),
+		box.br(),
+		cv::Scalar(0x00, 0x00, 0xff)    /* red */
+	);
+}
+
+
 void show(string window_name, cv::Mat img)
 {
 	cv::namedWindow(window_name, cv::WINDOW_AUTOSIZE);
@@ -103,21 +128,21 @@ vector<string> printCircle(string myline, string indelim = ",")
 	int pos;
 	if (myline.find("#") == 0)
 	{
-		cout << "Commented line" << endl;
+		//cout << "Commented line" << endl;
 		return circle;
 	}
 	else if (myline.empty()) {
-		cout << "Empty Line" << endl;
+		//cout << "Empty Line" << endl;
 		return circle;
 	}
 	else
 	{
 		while ((pos = myline.find(indelim)) != string::npos)
 		{
-			cout << myline.substr(0, pos) << endl;
+			//	cout << myline.substr(0, pos) << endl;
 			circle.push_back(myline.substr(0, pos));
 			circle.push_back(myline.substr(pos + indelim.length(), string::npos));
-			cout << myline.substr(pos + indelim.length(), string::npos) << endl;
+			//	cout << myline.substr(pos + indelim.length(), string::npos) << endl;
 			myline.erase(0, pos + indelim.length());
 		}
 	}
@@ -209,8 +234,6 @@ Mat gammaCorrection(const Mat& img, const double gamma_)
 	LUT(img, lookUpTable, res);
 	//! [changing-contrast-brightness-gamma-correction]
 
-
-	imshow("Gamma correction", res);
 	return res;
 }
 
@@ -258,12 +281,13 @@ int main(int argc, char** argv)
 
 	}
 	else {
-		Mat image, smallimage, greyimage, eqimage, edgeimage, circleimage;
+		Mat image, smallimage, greyimage, eqimage, edgeimage, circleimage, temp;
 		string filename = argv[1], line, strInput, greyout, eqout,
 			edgeout, textout, truetextin, circleout;
 		ifstream infile{ filename };
 		Point2i  circ_center;
 		vector<cv::Point2i> circle_centers;
+		vector <double> f1s;
 
 		double lower_thresh = atof(argv[2]), upper_thresh = atof(argv[3]), min_dist = atof(argv[4]), min_rad = atof(argv[5]), max_rad = atof(argv[6]);
 
@@ -312,11 +336,46 @@ int main(int argc, char** argv)
 
 
 				medianBlur(eqimage, eqimage, 5);
-				/*namedWindow("Window", WINDOW_AUTOSIZE);
-				setMouseCallback("Window", drawCircle, NULL);
-				imshow("eqimage", eqimage);
-				waitKey(0);*/
 
+				// CHECK if [Name]true_circles.txt exists!
+				ifstream truecirclecheck;
+				truecirclecheck.open("b.txt");
+				if (truecirclecheck) {
+					cout << truetextin + " file exists";
+				}
+				else {
+					cout << truetextin + " file doesn't exist. Dropping into ANNOTATION MODE.";
+					box = cv::Rect(-1, -1, 0, 0);
+
+
+					cv::namedWindow("Drag Boxes to Select Coins; press <ESC> to exit");
+
+					cv::setMouseCallback(
+						"Drag Boxes to Select Coins; press <ESC> to exit",
+						my_mouse_callback,
+						(void*)&eqimage
+					);
+
+					for (;;) {
+
+						eqimage.copyTo(temp);
+						if (drawing_box) draw_box(temp, box);
+						cv::imshow("Drag Boxes to Select Coins; press <ESC> to exit", temp);
+
+						if (cv::waitKey(15) == 27) break;
+					}
+					ofstream outputtext{ truetextin };
+					outputtext << "#Image file: " << truetextin << endl;
+					outputtext << "#Circle; Center" << endl;
+					for (Point2d elem : circlecenters) {
+						cout << "Annotated Circle is: " << elem << endl;
+
+						outputtext << elem.x << "," << elem.y << endl;
+
+					}
+					cout << "ANNOTATION IS DONE." << endl;
+
+				}
 
 
 
@@ -329,7 +388,9 @@ int main(int argc, char** argv)
 				houghCircleWrap(edgeimage, smallimage, textout, circleout,
 					lower_thresh, upper_thresh, min_dist, min_rad, max_rad);
 
-				double f1 = F1Finder(textout, truetextin, 0.33*min_rad);
+				double f1 = F1Finder(textout, truetextin, 0.33 * min_rad);
+				f1s.push_back(f1);
+
 				string f1string = "# best f1: " + to_string(f1);
 				cout << "F1  for " << line << ": " << f1 << endl;
 				ofstream appendout;
@@ -340,9 +401,64 @@ int main(int argc, char** argv)
 
 				cout << "F1  for " << line << ": " << f1 << endl;
 				cout << "Done with " << line << endl;
+
 			}
 		}
 
+		// reporting
+		double avg_f1 = 0;
+		for (double elem : f1s) {
+			avg_f1 += elem / f1s.size();
+		}
+		cout << "Average F1 from coin images: " << avg_f1 << endl;
 		return 0;
 	}
+}
+
+
+void my_mouse_callback(
+	int event, int x, int y, int flags, void* param
+) {
+
+	cv::Mat& image = *(cv::Mat*)param;
+	switch (event) {
+
+	case cv::EVENT_MOUSEMOVE: {
+		if (drawing_box) {
+			box.width = x - box.x;
+			box.height = y - box.y;
+		}
+	}
+							break;
+
+	case cv::EVENT_LBUTTONDOWN: {
+		drawing_box = true;
+		box = cv::Rect(x, y, 0, 0);
+	}
+							  break;
+
+	case cv::EVENT_LBUTTONUP: {
+		drawing_box = false;
+		if (box.width < 0) {
+			box.x += box.width;
+			box.width *= -1;
+		}
+		if (box.height < 0) {
+			box.y += box.height;
+			box.height *= -1;
+		}
+		draw_box(image, box);
+
+		// b = a + (b-a)
+		// a + (b-a)/2 = a/2 + b/2 -> midpoint 
+		Point2f difference = Point2f(box.br() - box.tl());
+		Point2f center = 0.5 * difference + Point2f(box.tl());
+
+		int rad = (int)round(0.5 * sqrt(box.area()));
+		circle(image, center, rad, cv::Scalar(0xf0, 0x03, 0xff));
+		circlecenters.push_back(center);
+	}
+							break;
+	}
+
 }
