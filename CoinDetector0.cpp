@@ -103,16 +103,21 @@ vector<string> printCircle(string myline, string indelim = ",")
 	int pos;
 	if (myline.find("#") == 0)
 	{
+		cout << "Commented line" << endl;
+		return circle;
+	}
+	else if (myline.empty()) {
+		cout << "Empty Line" << endl;
 		return circle;
 	}
 	else
 	{
 		while ((pos = myline.find(indelim)) != string::npos)
 		{
-			// cout << myline.substr(0, pos) << endl;
+			cout << myline.substr(0, pos) << endl;
 			circle.push_back(myline.substr(0, pos));
 			circle.push_back(myline.substr(pos + indelim.length(), string::npos));
-			// cout << myline.substr(pos + indelim.length(), string::npos) << endl;
+			cout << myline.substr(pos + indelim.length(), string::npos) << endl;
 			myline.erase(0, pos + indelim.length());
 		}
 	}
@@ -125,57 +130,68 @@ vector<Vec2f> readF1File(string filename) {
 	vector<string> mycirgle;
 	string line;
 	ifstream infile{ filename };
+	cout << "Reading file " << filename << endl;
 
-	if (!infile.bad())
+	while (getline(infile, line))
 	{
-		while (!infile.eof())
+		// strip whitespace
+		std::string::iterator end_pos = std::remove(line.begin(), line.end(), ' ');
+		line.erase(end_pos, line.end());
+
+		mycirgle = printCircle(line);
+
+		if (!mycirgle.empty())
 		{
-
-			getline(infile, line);
-
-			mycirgle = printCircle(line);
-
-			if (!mycirgle.empty())
-			{
-				Vec2f singleCircle(stod(mycirgle.front()), stod(mycirgle.back()));
-				myCircles.push_back(singleCircle);
-			}
+			Vec2f singleCircle(stod(mycirgle.front()), stod(mycirgle.back()));
+			myCircles.push_back(singleCircle);
 		}
 
+
 	}
+	cout << "Done with file " << filename << endl;
 	return myCircles;
 }
 
 
 double F1Finder(string predFile, string trueFile, double threshold) {
 	/// <summary>
-	/// F1Finder: calculates
+	/// F1Finder: calculates F1 score from two "circle report" files 
+	/// Where each line that starts with a `#` is ignored 
+	/// and each line of the format `double,double` is read into an OpenCV Vec2f 
 	/// </summary>
 	/// <param name="pred"></param>
 	/// <param name="argv"></param>
 	/// <returns> F1 score</returns>
 
 	vector<Vec2f> predCircles = readF1File(predFile), trueCircles = readF1File(trueFile);
-	double fitness = 0.0, precision, recall;
+	double fitness = 0.0, precision = 0.0, recall = 0.0;
 	float truepos = 0, fpos = 0;
 	float pos = predCircles.size();
 
 
 	for (Vec2f predpt : predCircles) {
+		float start_true = truepos;
 		for (Vec2f truept : trueCircles) {
 
-			double dist = sqrt(cv::norm(truept, predpt));
+			double dist = cv::norm(truept, predpt, NORM_L2);
 			if (dist < threshold) {
 				truepos++;
+
+				cout << "True positive: " << predpt << " vs " << truept << "at " << dist << endl;
+				remove_copy(trueCircles.begin(), trueCircles.end(), trueCircles.begin(), truept);
+				break;
 			}
-			else {
-				fpos++;
-			}
+
+		}
+		// found no matches? 
+		if (truepos == start_true) {
+			fpos++;
+			cout << "False positive: " << predpt << endl;
 		}
 
 	}
 	precision = truepos / pos;
-	recall = truepos / trueFile.length();
+	recall = truepos / trueCircles.size();
 	fitness = 2 * (precision * recall) / (precision + recall);
 	return fitness;
 }
@@ -244,7 +260,7 @@ int main(int argc, char** argv)
 	else {
 		Mat image, smallimage, greyimage, eqimage, edgeimage, circleimage;
 		string filename = argv[1], line, strInput, greyout, eqout,
-			edgeout, textout, circleout;
+			edgeout, textout, truetextin, circleout;
 		ifstream infile{ filename };
 		Point2i  circ_center;
 		vector<cv::Point2i> circle_centers;
@@ -253,9 +269,8 @@ int main(int argc, char** argv)
 
 		if (!infile.bad())
 		{
-			while (!infile.eof()) {
+			while (getline(infile, line)) {
 
-				getline(infile, line);
 				if (line.length() < 4) {
 					break;
 				}
@@ -277,6 +292,7 @@ int main(int argc, char** argv)
 				edgeout = short_line + "edgeout.jpg";
 				circleout = short_line + "circleout.jpg";
 				textout = short_line + "report.txt";
+				truetextin = short_line + "true_circles.txt";
 
 				if (smallimage.empty()) // Check for invalid input
 				{
@@ -285,35 +301,44 @@ int main(int argc, char** argv)
 				}
 
 				cout << "Starting " << line << endl;
-				bilateralFilter(smallimage, greyimage, 90, 180, 45);
+				bilateralFilter(smallimage, greyimage, 36, 72, 72);
 				cvtColor(greyimage, greyimage, cv::COLOR_BGR2GRAY);
-				show("greyimage", greyimage);
+				//show("greyimage", greyimage);
 				imwrite(greyout, greyimage);
 
 				eqimage = gammaCorrection(greyimage, 1.1);
-				show("eqimage", eqimage);
+				//show("eqimage", eqimage);
 				imwrite(eqout, eqimage);
 
 
-				//	medianBlur(eqimage, eqimage, 5);
-					/*namedWindow("Window", WINDOW_AUTOSIZE);
-					setMouseCallback("Window", drawCircle, NULL);
-					imshow("eqimage", eqimage);
-					waitKey(0);*/
+				medianBlur(eqimage, eqimage, 5);
+				/*namedWindow("Window", WINDOW_AUTOSIZE);
+				setMouseCallback("Window", drawCircle, NULL);
+				imshow("eqimage", eqimage);
+				waitKey(0);*/
 
 
 
 
 				edgeimage = cannyWrap(eqimage, lower_thresh, upper_thresh);
 				imwrite(edgeout, edgeimage);
-				show("edgeimage", edgeimage);
+				//show("edgeimage", edgeimage);
 
 				//annotateCircle(eqimage);
 
 				houghCircleWrap(edgeimage, smallimage, textout, circleout,
 					lower_thresh, upper_thresh, min_dist, min_rad, max_rad);
 
+				double f1 = F1Finder(textout, truetextin, 0.33*min_rad);
+				string f1string = "# best f1: " + to_string(f1);
+				cout << "F1  for " << line << ": " << f1 << endl;
+				ofstream appendout;
 
+				//append f1 score to outputfile
+				appendout.open(textout, std::ios_base::app);
+				appendout << f1string << endl;
+
+				cout << "F1  for " << line << ": " << f1 << endl;
 				cout << "Done with " << line << endl;
 			}
 		}
