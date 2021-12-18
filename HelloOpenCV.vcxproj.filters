@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HelloOpenCV.cpp">
+    <ClCompile Include="CoinDetector0.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

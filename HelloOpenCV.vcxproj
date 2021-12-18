@@ -82,6 +82,7 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>C:\Users\cl140\Downloads\opencv\build\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\cl140\Downloads\opencv\build\x64\vc15\lib;$(LibraryPath)</LibraryPath>
+    <TargetName>CoinDetector0</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -145,7 +146,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="HelloOpenCV.cpp" />
+    <ClCompile Include="CoinDetector0.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
