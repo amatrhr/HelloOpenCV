@@ -9,7 +9,8 @@ using namespace cv;
 using namespace std;
 
 #define CHANNEL_NUM 3
-
+const string txt = ".txt";
+const int morph_size = 5;
 
 // Define our callback which we will install for
 // mouse events
@@ -99,7 +100,7 @@ void houghCircleWrap(cv::Mat& img, cv::Mat& refimg, string outtext, string outim
 		outputtext << "# x=" << center.x << " y=" << center.y << " radius=" << radius << endl;
 
 	}
-	outputtext << "#Number of coins: " << circles.size()  << endl;
+	outputtext << "#Number of coins: " << circles.size() << endl;
 
 	outputtext << "#Characteristics: " << min_dist << " " << low_thresh << " " << high_thresh << " " << min_rad << " " << max_rad << endl;
 	show("eqimage", refimg);
@@ -201,7 +202,7 @@ double F1Finder(string predFile, string trueFile, double threshold) {
 	for (Vec2f predpt : predCircles) {
 		float start_true = truepos;
 		//cout << "True Circs: " << trueCircles.size() << endl;
-		for (int i=0; i < trueCircles.size(); i++) {
+		for (int i = 0; i < trueCircles.size(); i++) {
 
 			double dist = cv::norm(trueCircles[i], predpt, NORM_L2);
 			if (dist < threshold) {
@@ -221,7 +222,7 @@ double F1Finder(string predFile, string trueFile, double threshold) {
 
 	}
 	precision = truepos / pos;
-	recall = truepos / trueCircles.size();
+	recall = truepos / (trueCircles.size() + truepos);
 	fitness = 2 * (precision * recall) / (precision + recall);
 	cout << "TP: " << truepos << " FP: " << fpos << " FN: " << trueCircles.size() << endl;
 	cout << "Precision: " << precision << " Recall: " << recall << " F1: " << fitness << endl;
@@ -295,7 +296,7 @@ int main(int argc, char** argv)
 		Point2i  circ_center;
 		vector<cv::Point2i> circle_centers;
 		vector <double> f1s;
-		int morph_size = 3;
+
 
 		double lower_thresh = atof(argv[2]), upper_thresh = atof(argv[3]), min_dist = atof(argv[4]), min_rad = atof(argv[5]), max_rad = atof(argv[6]);
 
@@ -304,17 +305,21 @@ int main(int argc, char** argv)
 		{
 			while (getline(infile, line)) {
 
+				// check filename formatting
 				if (line.length() < 4) {
 					break;
 				}
-				image = imread(line, IMREAD_COLOR); // Read the file
 
-				if ((image.cols > 1200) || (image.rows > 1200)) {
-					resize(image, smallimage, Size(), 0.1725, 0.1725, INTER_AREA);
+				// choose between text file listing input images vs. individual image
+				if (filename.substr(filename.length() - 4, string::npos).compare(txt) == 0) {
+					image = imread(line, IMREAD_COLOR); // Read the file
 				}
 				else {
-					resize(image, smallimage, Size(), 1.0, 1.0, INTER_AREA);
+					image = imread(filename, IMREAD_COLOR);
+					line = filename;
 				}
+
+
 
 				// assume file extension is last four characters 
 				int pos = line.length() - 4;
@@ -328,14 +333,14 @@ int main(int argc, char** argv)
 				textout = short_line + "report.txt";
 				truetextin = short_line + "true_circles.txt";
 
-				if (smallimage.empty()) // Check for invalid input
+				if (image.empty()) // Check for invalid input
 				{
 					cout << "Could not open or find the image" << std::endl;
 					return -1;
 				}
 
 				cout << "Starting " << line << endl;
-				bilateralFilter(smallimage, greyimage, 36, 72, 72);
+				bilateralFilter(image, greyimage, 36, 72, 72);
 				cvtColor(greyimage, greyimage, cv::COLOR_BGR2GRAY);
 				//show("greyimage", greyimage);
 				imwrite(greyout, greyimage);
@@ -399,7 +404,7 @@ int main(int argc, char** argv)
 				Mat element = getStructuringElement(MORPH_RECT, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
 				morphologyEx(edgeimage, morphimage, MORPH_DILATE, element);
 				imwrite(morphout, morphimage);
-				houghCircleWrap(morphimage, smallimage, textout, circleout,
+				houghCircleWrap(morphimage, image, textout, circleout,
 					lower_thresh, upper_thresh, min_dist, min_rad, max_rad);
 
 				double f1 = F1Finder(textout, truetextin, 0.33 * min_rad);
@@ -413,7 +418,6 @@ int main(int argc, char** argv)
 				appendout.open(textout, std::ios_base::app);
 				appendout << f1string << endl;
 
-				cout << "F1  for " << line << ": " << f1 << endl;
 				cout << "Done with " << line << endl;
 
 			}
@@ -469,8 +473,8 @@ void my_mouse_callback(
 		Point2f center = 0.5 * difference + Point2f(box.tl());
 
 		int rad = (int)round(0.5 * sqrt(box.area()));
-		circle(image, center, rad, cv::Scalar(0, 255, 0),3);
-		circle(image, center, 1, cv::Scalar(255, 200, 255),3);
+		circle(image, center, rad, cv::Scalar(0, 255, 0), 3);
+		circle(image, center, 1, cv::Scalar(255, 200, 255), 3);
 		circlecenters.push_back(center);
 	}
 							break;
