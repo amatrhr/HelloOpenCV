@@ -13,7 +13,7 @@ using namespace std;
 #define CHANNEL_NUM 3
 const string txt = ".txt";
 const int morph_size = 3;
-const double min_dist = 50, lower_thresh = 28, upper_thresh = 150;
+const double min_dist = 50, lower_thresh = 30, upper_thresh = 130;
 
 // Define our callback which we will install for
 // mouse events
@@ -57,7 +57,7 @@ Mat cannyWrap(cv::Mat& img, double low_thresh, double high_thresh)
 	double hilo_diff = high_thresh - low_thresh, eps = 10;
 	vector<vector<Point> > contours0;
 	while (((contours0.size() > 4500) || (contours0.size() < 1000)) && (hilo_diff > 0.1) && (eps > 9)) {
-		cv::Canny(img, cannyMat, low_thresh, high_thresh);
+		cv::Canny(img, cannyMat, low_thresh, high_thresh, 3, true);
 		vector<Vec4i> hierarchy;
 		double oldcontours = contours0.size();
 		findContours(cannyMat, contours0, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
@@ -162,8 +162,8 @@ void houghCircleWrap(cv::Mat& img, cv::Mat& refimg, string outtext, string outim
 
 		// clean outlier circles
 		int outliercount = 0;
-		double upperfence = medradius + 1.33 * iqrradius;
-		double lowerfence = (medradius - 1.33 * iqrradius) < 0 ? 0.0 : (medradius - 1.33 * iqrradius);
+		double upperfence = medradius + 1.25 * iqrradius;
+		double lowerfence = (medradius - 1.25 * iqrradius) < 0 ? 0.0 : (medradius - 1.25 * iqrradius);
 		for (int i = 0; i < circles.size(); i++)
 		{
 			if (circles[i][2] > upperfence) {
@@ -175,7 +175,7 @@ void houghCircleWrap(cv::Mat& img, cv::Mat& refimg, string outtext, string outim
 		}
 		cout << "There were " << outliercount << " outliers." << endl;
 
-		if (outliercount > 1) {
+		if ((outliercount > 1) || (circles.size() > 10)) {
 			cv::HoughCircles(img, circles, cv::HOUGH_GRADIENT, 1.5, min_dist, low_thresh, high_thresh, lowerfence, upperfence);
 		}
 	}
@@ -435,28 +435,38 @@ int main(int argc, char** argv)
 				}
 
 				cout << "Starting " << line << endl;
-				bilateralFilter(image, greyimage, 36, 196, 196);
+				bilateralFilter(image, greyimage, 24, 144, 144);
 				cvtColor(greyimage, greyimage, cv::COLOR_BGR2GRAY);
 				//show("greyimage", greyimage);
 				imwrite(greyout, greyimage);
-				Scalar matmean = mean(greyimage);
-				cout << "matman" << matmean << endl;
-				equalizeHist(greyimage, greyimage);
-				if (matmean[0] < 125) {
+				Scalar matmean, matstd; 
+				meanStdDev(greyimage, matmean, matstd);
+				cout << "matmean " << matmean << endl;
+				cout << "matstd " << matstd << endl;
+
+				if ((matmean[0] < 125) ) {
 					// underexposed
 					eqimage = gammaCorrection(greyimage, 0.75);
 				}
-				else if (matmean[0] > 171) {
+				else if ((matmean[0] > 171) && (matstd[0]/matmean[0] > 1.5)) {
+					//really overexposed + high contrast
 					eqimage = gammaCorrection(greyimage, 3.25);
 				}
 				else {
 					//overexposed
 					eqimage = gammaCorrection(greyimage, 1.25);
 				}
+
+				meanStdDev(eqimage, matmean, matstd);
+				cout << "matmean " << matmean << endl;
+				cout << "matstd " << matstd << endl;
+				if ( matstd[0] / matmean[0] > 1.25) {
+					//really overexposed + high cont rast
+					equalizeHist(eqimage, eqimage);
+				}
 				
 				
-				
-				GaussianBlur(eqimage, eqimage, cv::Size(5, 5), 1.44, 1.44);
+				GaussianBlur(eqimage, eqimage, cv::Size(3, 3), 1.44, 1.44);
 				imwrite(eqout, eqimage);
 				
 
