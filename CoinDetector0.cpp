@@ -439,7 +439,7 @@ int main(int argc, char** argv)
 				}
 
 				cout << "Starting " << line << endl;
-				bilateralFilter(image, greyimage, 24, 172, 172);
+				bilateralFilter(image, greyimage, 24, 196, 196);
 
 				Scalar matmean, matstd;
 				meanStdDev(greyimage, matmean, matstd);
