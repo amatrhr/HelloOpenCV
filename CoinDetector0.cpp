@@ -12,8 +12,8 @@ using namespace std;
 
 #define CHANNEL_NUM 3
 const string txt = ".txt";
-const int morph_size = 3;
-const double min_dist = 50, lower_thresh = 30, upper_thresh = 130;
+const int morph_size = 1;
+const double min_dist = 100,  lower_thresh = 27.5, upper_thresh = 129.5;
 
 // Define our callback which we will install for
 // mouse events
@@ -64,7 +64,7 @@ Mat cannyWrap(cv::Mat& img, double low_thresh, double high_thresh)
 		//cout << "I found " << contours0.size() << " contours. FOOL! " << endl;
 		eps = pow((oldcontours - contours0.size()), 2);
 		Mat element = getStructuringElement(MORPH_RECT, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
-	
+
 		if (contours0.size() > 2000) {
 			cout << "I found  too many contours. Making lower threshold higher and  " << endl;
 			low_thresh += 0.5 * hilo_diff;
@@ -362,6 +362,8 @@ void drawCircle(int action, int x, int y, int flags, void* userdata)
 	}
 }
 
+
+
 int main(int argc, char** argv)
 {
 	/*
@@ -383,7 +385,7 @@ int main(int argc, char** argv)
 
 	}
 	else {
-		Mat image, smallimage, greyimage, eqimage, edgeimage, circleimage, eqcopy, temp, morphimage;
+		Mat image, threshimage, greyimage, eqimage, edgeimage, circleimage, eqcopy, temp, morphimage;
 		string filename = argv[1], line, strInput, greyout, eqout,
 			edgeout, textout, truetextin, circleout, morphout;
 		ifstream infile{ filename };
@@ -391,6 +393,8 @@ int main(int argc, char** argv)
 		vector<cv::Point2i> circle_centers;
 		vector <double> f1s;
 		bool singleFile = false;
+		double new_lower_thresh = lower_thresh;
+		double new_upper_thresh = upper_thresh;
 
 
 		//double lower_thresh = atof(argv[2]), upper_thresh = atof(argv[3]);
@@ -435,52 +439,74 @@ int main(int argc, char** argv)
 				}
 
 				cout << "Starting " << line << endl;
-				bilateralFilter(image, greyimage, 24, 144, 144);
-				cvtColor(greyimage, greyimage, cv::COLOR_BGR2GRAY);
-				//show("greyimage", greyimage);
-				imwrite(greyout, greyimage);
-				Scalar matmean, matstd; 
+				bilateralFilter(image, greyimage, 24, 172, 172);
+
+				Scalar matmean, matstd;
 				meanStdDev(greyimage, matmean, matstd);
 				cout << "matmean " << matmean << endl;
 				cout << "matstd " << matstd << endl;
 
-				if ((matmean[0] < 125) ) {
+				if (matstd[0] / matmean[0] < 0.25) {
+					//Images with narrow intensity range get extra filtering
+
+
+					bilateralFilter(image, greyimage, 12, 128, 128);
+
+				}
+
+				cvtColor(greyimage, greyimage, cv::COLOR_BGR2GRAY);
+				//show("greyimage", greyimage);
+				imwrite(greyout, greyimage);
+
+
+				if ((matmean[0] < 125)) {
 					// underexposed
 					eqimage = gammaCorrection(greyimage, 0.75);
 				}
-				else if ((matmean[0] > 171) && (matstd[0]/matmean[0] > 1.5)) {
+				else if ((matmean[0] > 171) && (matstd[0] / matmean[0] > 1.5)) {
 					//really overexposed + high contrast
 					eqimage = gammaCorrection(greyimage, 3.25);
 				}
+
 				else {
 					//overexposed
 					eqimage = gammaCorrection(greyimage, 1.25);
 				}
 
+				
 				meanStdDev(eqimage, matmean, matstd);
 				cout << "matmean " << matmean << endl;
 				cout << "matstd " << matstd << endl;
-				if ( matstd[0] / matmean[0] > 1.25) {
-					//really overexposed + high cont rast
+				if (matstd[0] / matmean[0] > 1.25) {
+					//high intensity range (coins against background
+
 					equalizeHist(eqimage, eqimage);
+					double new_lower_thresh = 0.80 * matmean[0];
+					double new_upper_thresh = upper_thresh;
 				}
-				
-				
-				GaussianBlur(eqimage, eqimage, cv::Size(3, 3), 1.44, 1.44);
+
+
+
+				// final blurring
+				GaussianBlur(eqimage, eqimage, cv::Size(3, 3), 1.64, 1.64);
 				imwrite(eqout, eqimage);
-				
+
 
 				eqimage.copyTo(eqcopy);
-				edgeimage = cannyWrap(eqimage, lower_thresh, upper_thresh);
+
+				threshold(eqimage, threshimage, new_lower_thresh, 255.0, THRESH_TRIANGLE);
+
+				edgeimage = cannyWrap(eqimage, new_lower_thresh, new_upper_thresh);
 				imwrite(edgeout, edgeimage);
-		
+
 
 				Mat element = getStructuringElement(MORPH_RECT, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
+				morphologyEx(edgeimage, morphimage, MORPH_OPEN, element);
 				morphologyEx(edgeimage, morphimage, MORPH_CLOSE, element);
-
 				imwrite(morphout, morphimage);
-				houghCircleWrap(edgeimage, image, textout, circleout,
-					lower_thresh, upper_thresh);
+				// Use 1/10 of geometric mean of image to set minimum radius
+				houghCircleWrap(morphimage, image, textout, circleout,
+					new_lower_thresh, new_upper_thresh);
 
 				// CHECK if [Name]true_circles.txt exists!
 				ifstream truecirclecheck;
