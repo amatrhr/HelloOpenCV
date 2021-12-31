@@ -378,11 +378,10 @@ int main(int argc, char** argv)
 		cout << "Enter `CoinDetector0 help` into terminal for help" << endl;
 	}
 	else if (strcmp(argv[1], "help") == 0) {
-		cout << "USAGE: CoinDetector0 [imagefile.txt] [lower_thresh] [higher_thresh] [min_dist] [min rad] [max rad]" << endl;
+		cout << "USAGE: CoinDetector0 [imagefile] " << endl;
 		cout << "Where " << endl;
-		cout << "[imagefile.txt] is a plain text file giving the file path for each image, one per line \n[lower thresh] is the lower threshold for non-max suppression\n[higher thresh] is the upper threshold for non-max suppression\n[min dist] is minimum distance between circle centers\n[min rad] is the minimum radus of a circle\n[max rad] is the maximum radius of a circle" << endl;
-
-
+		cout << "[imagefile] is a path to a plain text file giving the file path for each image in a set to evaluate, one path per line" << endl;
+		cout << " OR the path to a single image file, i.e. myimage.jpg" << endl;
 	}
 	else {
 		Mat image, threshimage, greyimage, eqimage, edgeimage, circleimage, eqcopy, temp, morphimage;
