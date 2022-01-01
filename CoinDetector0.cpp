@@ -13,7 +13,7 @@ using namespace std;
 #define CHANNEL_NUM 3
 const string txt = ".txt";
 const int morph_size = 1;
-const double min_dist = 100,  lower_thresh = 27.5, upper_thresh = 129.5;
+const double min_dist = 100, lower_thresh = 27.5, upper_thresh = 129.5;
 
 // Define our callback which we will install for
 // mouse events
@@ -472,7 +472,7 @@ int main(int argc, char** argv)
 					eqimage = gammaCorrection(greyimage, 1.25);
 				}
 
-				
+
 				meanStdDev(eqimage, matmean, matstd);
 				cout << "matmean " << matmean << endl;
 				cout << "matstd " << matstd << endl;
