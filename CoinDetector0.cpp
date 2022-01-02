@@ -546,7 +546,7 @@ int main(int argc, char** argv)
 
 					}
 					cout << "ANNOTATION IS DONE." << endl;
-
+					circle_centers.clear();
 				}
 
 
