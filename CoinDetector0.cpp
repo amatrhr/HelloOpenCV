@@ -160,7 +160,7 @@ void houghCircleWrap(cv::Mat& img, cv::Mat& refimg, string outtext, string outim
 
 		cout << medradius << " is the median radius of the circles; IQR is " << iqrradius << endl;
 
-		// clean outlier circles
+		// clean outlier circles (with large radii)
 		int outliercount = 0;
 		double upperfence = medradius + 1.25 * iqrradius;
 		double lowerfence = (medradius - 1.25 * iqrradius) < 0 ? 0.0 : (medradius - 1.25 * iqrradius);
@@ -389,7 +389,7 @@ int main(int argc, char** argv)
 			edgeout, textout, truetextin, circleout, morphout;
 		ifstream infile{ filename };
 		Point2i  circ_center;
-		vector<cv::Point2i> circle_centers;
+		
 		vector <double> f1s;
 		bool singleFile = false;
 		double new_lower_thresh = lower_thresh;
@@ -417,8 +417,8 @@ int main(int argc, char** argv)
 					singleFile = true;
 				}
 
-
-
+				
+				// Map image file name 
 				// assume file extension is last four characters 
 				int pos = line.length() - 4;
 				string short_line = line.substr(0, pos);
@@ -503,17 +503,19 @@ int main(int argc, char** argv)
 				morphologyEx(edgeimage, morphimage, MORPH_OPEN, element);
 				morphologyEx(edgeimage, morphimage, MORPH_CLOSE, element);
 				imwrite(morphout, morphimage);
-				// Use 1/10 of geometric mean of image to set minimum radius
+
 				houghCircleWrap(morphimage, image, textout, circleout,
 					new_lower_thresh, new_upper_thresh);
 
-				// CHECK if [Name]true_circles.txt exists!
+				// CHECK if [image_root_name]true_circles.txt exists!
 				ifstream truecirclecheck;
 				truecirclecheck.open(truetextin);
 				if (truecirclecheck) {
 					cout << truetextin + " file exists";
 				}
 				else {
+					// Store circle centers for each image
+					vector<cv::Point2i> circle_centers;
 					cout << truetextin + " file doesn't exist. Dropping into ANNOTATION MODE.";
 					box = cv::Rect(-1, -1, 0, 0);
 
@@ -544,7 +546,8 @@ int main(int argc, char** argv)
 
 					}
 					cout << "ANNOTATION IS DONE." << endl;
-
+					circle_centers.clear();
+					outputtext.close();
 				}
 
 
@@ -612,7 +615,7 @@ void my_mouse_callback(
 		draw_box(image, box);
 
 		// b = a + (b-a)
-		// a + (b-a)/2 = a/2 + b/2 -> midpoint 
+		// a + (b-a)/2 = a/2 + b/2 -> midpoint vector -> center
 		Point2f difference = Point2f(box.br() - box.tl());
 		Point2f center = 0.5 * difference + Point2f(box.tl());
 
