@@ -389,7 +389,7 @@ int main(int argc, char** argv)
 			edgeout, textout, truetextin, circleout, morphout;
 		ifstream infile{ filename };
 		Point2i  circ_center;
-		vector<cv::Point2i> circle_centers;
+		
 		vector <double> f1s;
 		bool singleFile = false;
 		double new_lower_thresh = lower_thresh;
@@ -417,8 +417,8 @@ int main(int argc, char** argv)
 					singleFile = true;
 				}
 
-
-
+				
+				// Map image file name 
 				// assume file extension is last four characters 
 				int pos = line.length() - 4;
 				string short_line = line.substr(0, pos);
@@ -514,6 +514,8 @@ int main(int argc, char** argv)
 					cout << truetextin + " file exists";
 				}
 				else {
+					// Store circle centers for each image
+					vector<cv::Point2i> circle_centers;
 					cout << truetextin + " file doesn't exist. Dropping into ANNOTATION MODE.";
 					box = cv::Rect(-1, -1, 0, 0);
 
